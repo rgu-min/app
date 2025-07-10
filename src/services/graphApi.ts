@@ -367,5 +367,36 @@ export const graphApiService = {
       user.displayName.toLowerCase().includes(query.toLowerCase()) ||
       user.userPrincipalName.toLowerCase().includes(query.toLowerCase())
     );
+  },
+
+  async getUsersWithPermission(appId: string, permissionId: string): Promise<User[]> {
+    if (authService.isLoggedIn()) {
+      try {
+        return await realGraphApiService.getUsersWithPermission(appId, permissionId);
+      } catch (error) {
+        console.warn('Using mock data due to API error:', error);
+      }
+    }
+    
+    // Mock data - return some sample users with the permission
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return [
+      {
+        id: 'user-1',
+        displayName: 'John Doe',
+        userPrincipalName: 'john.doe@company.com',
+        mail: 'john.doe@company.com',
+        jobTitle: 'Sales Manager',
+        department: 'Sales'
+      },
+      {
+        id: 'user-3',
+        displayName: 'Mike Johnson',
+        userPrincipalName: 'mike.johnson@company.com',
+        mail: 'mike.johnson@company.com',
+        jobTitle: 'IT Administrator',
+        department: 'IT'
+      }
+    ];
   }
 };

@@ -935,6 +935,100 @@ async getAssignedGroups(targetId: string, isServicePrincipal: boolean): Promise<
     }
   }
 
+  async getUsersWithPermission(appId: string, permissionId: string): Promise<User[]> {
+    try {
+      let servicePrincipalId: string;
+
+      // If appId looks like a UUID (app registration), find the corresponding service principal
+      if (appId.length === 36 && appId.includes('-')) {
+        try {
+          // First, try to get the application to get its appId
+          const app = await this.graphClient
+            .api(`/applications/${appId}`)
+            .select('appId')
+            .get();
+
+          // Then find the service principal for this app
+          const spResponse = await this.graphClient
+            .api('/servicePrincipals')
+            .filter(`appId eq '${app.appId}'`)
+            .select('id')
+            .get();
+
+          if (spResponse.value.length > 0) {
+            servicePrincipalId = spResponse.value[0].id;
+          } else {
+            console.warn('No service principal found for application');
+            return [];
+          }
+        } catch (error) {
+          // If application not found, assume appId is already a service principal ID
+          servicePrincipalId = appId;
+        }
+      } else {
+        servicePrincipalId = appId;
+      }
+
+      // Get OAuth2 permission grants for this service principal (delegated permissions)
+      const permissionGrants = await this.graphClient
+        .api('/oauth2PermissionGrants')
+        .filter(`clientId eq '${servicePrincipalId}'`)
+        .get();
+
+      const usersWithPermission: User[] = [];
+      const processedUserIds = new Set<string>();
+
+      // Check each grant to see if it includes the specific permission
+      for (const grant of permissionGrants.value) {
+        if (grant.consentType === 'Principal' && grant.principalId) {
+          // This is a user-specific grant
+          const scopes = grant.scope ? grant.scope.split(' ') : [];
+          
+          // Find the scope that matches our permission ID
+          try {
+            const resourceSp = await this.graphClient
+              .api(`/servicePrincipals/${grant.resourceId}`)
+              .select('oauth2PermissionScopes')
+              .get();
+
+            const matchingScope = resourceSp.oauth2PermissionScopes?.find((scope: any) => 
+              scope.id === permissionId && scopes.includes(scope.value)
+            );
+
+            if (matchingScope && !processedUserIds.has(grant.principalId)) {
+              processedUserIds.add(grant.principalId);
+              
+              try {
+                const userResponse = await this.graphClient
+                  .api(`/users/${grant.principalId}`)
+                  .select('id,displayName,userPrincipalName,mail,jobTitle,department')
+                  .get();
+
+                usersWithPermission.push({
+                  id: userResponse.id,
+                  displayName: userResponse.displayName,
+                  userPrincipalName: userResponse.userPrincipalName,
+                  mail: userResponse.mail,
+                  jobTitle: userResponse.jobTitle,
+                  department: userResponse.department
+                });
+              } catch (userError) {
+                console.warn(`Could not fetch user details for ${grant.principalId}:`, userError);
+              }
+            }
+          } catch (resourceError) {
+            console.warn(`Could not fetch resource details for ${grant.resourceId}:`, resourceError);
+          }
+        }
+      }
+
+      return usersWithPermission;
+    } catch (error) {
+      console.error('Error fetching users with permission:', error);
+      throw error;
+    }
+  }
+
  /**
  * Revoca todos los permisos (delegados y de aplicación) de un Service Principal.
  * Equivalente al script de PowerShell proporcionado.
