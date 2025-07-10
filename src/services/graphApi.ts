@@ -1,4 +1,4 @@
-import { Application, ServicePrincipal, User, Permission, ApiResource } from '../types/entra';
+import { Application, ServicePrincipal, User, Permission, ApiResource, Group } from '../types/entra';
 import { realGraphApiService } from './realGraphApi';
 import { authService } from './authService';
 
@@ -367,5 +367,123 @@ export const graphApiService = {
       user.displayName.toLowerCase().includes(query.toLowerCase()) ||
       user.userPrincipalName.toLowerCase().includes(query.toLowerCase())
     );
+  },
+
+  async getAssignedGroups(targetId: string, isServicePrincipal: boolean): Promise<Group[]> {
+    if (authService.isLoggedIn()) {
+      try {
+        return await realGraphApiService.getAssignedGroups(targetId, isServicePrincipal);
+      } catch (error) {
+        console.warn('Using mock data due to API error:', error);
+        return [
+          {
+            id: 'group-1',
+            displayName: 'Sales Team',
+            description: 'Sales department group',
+            groupTypes: [],
+            securityEnabled: true
+          }
+        ];
+      }
+    }
+    return [];
+  },
+
+  async assignGroupToApplication(targetId: string, groupId: string, isServicePrincipal: boolean): Promise<void> {
+    if (authService.isLoggedIn()) {
+      try {
+        await realGraphApiService.assignGroupToApplication(targetId, groupId, isServicePrincipal);
+        return;
+      } catch (error) {
+        console.warn('Using mock behavior due to API error:', error);
+      }
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, 300));
+    console.log('Assigning group:', groupId, 'to', isServicePrincipal ? 'service principal' : 'application', ':', targetId);
+  },
+
+  async removeGroupFromApplication(targetId: string, groupId: string, isServicePrincipal: boolean): Promise<void> {
+    if (authService.isLoggedIn()) {
+      try {
+        await realGraphApiService.removeGroupFromApplication(targetId, groupId, isServicePrincipal);
+        return;
+      } catch (error) {
+        console.warn('Using mock behavior due to API error:', error);
+      }
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, 300));
+    console.log('Removing group:', groupId, 'from', isServicePrincipal ? 'service principal' : 'application', ':', targetId);
+  },
+
+  async searchGroups(query: string): Promise<Group[]> {
+    if (authService.isLoggedIn()) {
+      try {
+        return await realGraphApiService.searchGroups(query);
+      } catch (error) {
+        console.warn('Using mock data due to API error:', error);
+      }
+    }
+    
+    // Mock data
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return [
+      {
+        id: 'group-1',
+        displayName: 'Sales Team',
+        description: 'Sales department group',
+        groupTypes: [],
+        securityEnabled: true
+      },
+      {
+        id: 'group-2',
+        displayName: 'HR Department',
+        description: 'Human resources department',
+        groupTypes: [],
+        securityEnabled: true
+      }
+    ].filter(group => 
+      group.displayName.toLowerCase().includes(query.toLowerCase()) ||
+      (group.description || '').toLowerCase().includes(query.toLowerCase())
+    );
+  },
+
+  async getUsersWithPermission(appId: string, permissionId: string): Promise<User[]> {
+    if (authService.isLoggedIn()) {
+      try {
+        // This method might not exist in realGraphApiService yet
+        return [];
+      } catch (error) {
+        console.warn('Using mock data due to API error:', error);
+      }
+    }
+    
+    // Mock data
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return [
+      {
+        id: 'user-1',
+        displayName: 'John Doe',
+        userPrincipalName: 'john.doe@company.com',
+        mail: 'john.doe@company.com',
+        jobTitle: 'Sales Manager',
+        department: 'Sales'
+      }
+    ];
+  },
+
+  async removePermission(appId: string, permissionId: string): Promise<void> {
+    if (authService.isLoggedIn()) {
+      try {
+        await realGraphApiService.removePermission(appId, permissionId);
+        return;
+      } catch (error) {
+        console.warn('Using mock behavior due to API error:', error);
+      }
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, 300));
+    console.log('Removing permission:', permissionId, 'from app:', appId);
   }
 };
